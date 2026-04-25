@@ -1,0 +1,77 @@
+# ==========================================
+# Entornos Virtuales y Configuración
+# ==========================================
+venv/
+.venv/
+env/
+.env/
+.env
+
+# ==========================================
+# Archivos de caché y compilados de Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==========================================
+# Archivos generados por el Web Scraper
+# ==========================================
+# Ignorar HTMLs de reconocimiento
+*_crudo.html
+inversen_catalogo_crudo.html
+bi_catalogo_crudo.html
+
+# Ignorar todos los datasets exportados
+*.csv
+datos_inversen.csv
+datos_bi_vivienda.csv
+
+# Logs por si el scraper falla o genera reportes
+*.log
+
+# ==========================================
+# Entornos de Desarrollo (IDEs)
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==========================================
+# Sistema Operativo (Windows)
+# ==========================================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ==========================================
+# macOS (Por si colaboras con alguien más)
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ==========================================
+# Jupyter Notebooks (Por si haces análisis luego)
+# ==========================================
+.ipynb_checkpoints/
