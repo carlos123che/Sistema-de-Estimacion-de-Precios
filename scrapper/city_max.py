@@ -1,27 +1,36 @@
 import cloudscraper
 from bs4 import BeautifulSoup
 import time
-import pandas as pd
+import db_config
+import data_cleaner
 
 # Configuración base
 BASE_URL = "https://www.citymax-gt.com"
-ZONA_INICIAL = 1
-ZONA_FINAL = 24
+PAGINA_INICIAL = 1
+PAGINA_FINAL = 11
 
 # Nuestro 'disfraz' de navegador
 scraper = cloudscraper.create_scraper(
     browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
 )
 
+# Conexión a DB y preparativos
+conn = db_config.get_connection()
+if conn:
+    id_fuente = db_config.get_or_create_fuente(conn, "CityMax", "https://www.citymax-gt.com")
+    id_tipo_inmueble = db_config.get_or_create_tipo_inmueble(conn, "Casa")
+else:
+    print("Advertencia: No se pudo conectar a la base de datos.")
+
 dataset_citymax = []
 
-print("Iniciando barrido táctico en CityMax (Zonas 1 a 24)...")
+print("Iniciando barrido por páginas en CityMax...")
 print("-" * 50)
 
-# Loop para recorrer de la zona 1 a la 24
-for zona in range(ZONA_INICIAL, ZONA_FINAL + 1):
-    url_objetivo = f"{BASE_URL}/casas/venta/ciudad-de-guatemala/zona-{zona}"
-    print(f"Escaneando Zona {zona}: {url_objetivo}")
+# Loop para recorrer de la página 1 a la 11
+for pagina in range(PAGINA_INICIAL, PAGINA_FINAL + 1):
+    url_objetivo = f"{BASE_URL}/casas/venta/ciudad-de-guatemala?page={pagina}"
+    print(f"Escaneando Página {pagina}: {url_objetivo}")
     
     try:
         response = scraper.get(url_objetivo)
@@ -33,9 +42,9 @@ for zona in range(ZONA_INICIAL, ZONA_FINAL + 1):
             tarjetas = soup.find_all("article")
             
             if not tarjetas:
-                print(f"  -> No se encontraron propiedades listadas en la Zona {zona}.")
+                print(f"  -> No se encontraron propiedades en la Página {pagina}.")
             else:
-                print(f"  -> ¡Encontradas {len(tarjetas)} propiedades en esta zona!")
+                print(f"  -> ¡Encontradas {len(tarjetas)} propiedades!")
                 
                 # Extraemos la data de cada tarjeta encontrada en esta zona
                 for tarjeta in tarjetas:
@@ -53,6 +62,7 @@ for zona in range(ZONA_INICIAL, ZONA_FINAL + 1):
                     
                     # 4. Extraer Características (Están dentro de párrafos con iconos)
                     habitaciones = None
+                    banos = None
                     parqueos = None
                     metros = None
                     
@@ -67,6 +77,8 @@ for zona in range(ZONA_INICIAL, ZONA_FINAL + 1):
                             
                             if nombre_icono == "bed":
                                 habitaciones = valor
+                            elif nombre_icono == "bathtub":
+                                banos = valor
                             elif nombre_icono == "directions_car":
                                 parqueos = valor
                             elif nombre_icono == "square_foot":
@@ -74,9 +86,9 @@ for zona in range(ZONA_INICIAL, ZONA_FINAL + 1):
                     
                     # Armamos el registro
                     registro = {
-                        "Zona": f"Zona {zona}",
                         "Precio": precio,
                         "Habitaciones": habitaciones,
+                        "Baños": banos,
                         "Parqueos": parqueos,
                         "Construccion (m2)": metros,
                         "Ubicacion": ubicacion,
@@ -84,24 +96,47 @@ for zona in range(ZONA_INICIAL, ZONA_FINAL + 1):
                     }
                     
                     dataset_citymax.append(registro)
+
+                    # Inserción en DB
+                    if conn:
+                        try:
+                            precio_limpio = data_cleaner.limpiar_precio_quetzales(precio)
+                            area_limpia = data_cleaner.limpiar_area_metros(metros)
+                            habs_limpio = data_cleaner.limpiar_entero(habitaciones)
+                            banos_limpio = data_cleaner.limpiar_decimal(banos)
+                            parqueos_limpio = data_cleaner.limpiar_entero(parqueos)
+                            
+                            nombre_zona = data_cleaner.extraer_zona(ubicacion)
+                            id_zona_db = db_config.get_or_create_zona(conn, nombre_zona)
+                            
+                            datos_db = {
+                                'id_fuente': id_fuente,
+                                'id_zona': id_zona_db,
+                                'id_tipo_inmueble': id_tipo_inmueble,
+                                'precio_quetzales': precio_limpio,
+                                'area_metros': area_limpia,
+                                'habitaciones': habs_limpio,
+                                'baños': banos_limpio,
+                                'parqueos': parqueos_limpio
+                            }
+                            db_config.insert_inmueble(conn, datos_db)
+                        except Exception as e_db:
+                            print(f"Error al insertar en BD: {e_db}")
                     
         else:
-            print(f"  -> Servidor devolvió error {response.status_code}. Saltando zona.")
+            print(f"  -> Servidor devolvió error {response.status_code}. Saltando página.")
             
     except Exception as e:
-        print(f"  -> Error de conexión en Zona {zona}: {e}")
+        print(f"  -> Error de conexión en Página {pagina}: {e}")
         
-    # Respiro táctico de 3 segundos entre zonas para evadir detección
+    # Respiro táctico de 3 segundos entre páginas para evadir detección
     time.sleep(3) 
 
 # --- EXPORTACIÓN A CSV ---
 print("\n" + "=" * 50)
 print("¡Barrido finalizado! Procesando el dataset de CityMax...")
 
-if dataset_citymax:
-    df_citymax = pd.DataFrame(dataset_citymax)
-    nombre_archivo = "dataset_citymax_zonas_1_24.csv"
-    df_citymax.to_csv(nombre_archivo, index=False, encoding='utf-8-sig')
-    print(f"¡Éxito total! Se exportaron {len(df_citymax)} propiedades a '{nombre_archivo}'.")
-else:
-    print("No se logró extraer ninguna propiedad en el rango indicado.")
+print(f"¡Éxito total! Se procesaron y enviaron {len(dataset_citymax)} propiedades a la base de datos.")
+
+if conn:
+    conn.close()

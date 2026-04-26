@@ -1,44 +1,95 @@
-from bs4 import BeautifulSoup
-import pandas as pd
+import requests
+import db_config
+import data_cleaner
+import time
 
-print("Analizando el HTML renderizado...")
-with open("homes_guatemala_renderizado.html", "r", encoding="utf-8") as f:
-    html = f.read()
+# Configuración API
+API_BASE_URL = "https://app-pool.vylaris.online/homes/api/Inmueble"
+HEADERS = {
+    "Origin": "https://homesguatemala.com",
+    "Referer": "https://homesguatemala.com/",
+    "Accept": "application/json, text/plain, */*",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
-soup = BeautifulSoup(html, 'html.parser')
+print("Iniciando extracción desde la API de Homes Guatemala...")
 
-lista_propiedades = []
-
-tarjetas = soup.find_all("div", class_="p-6")
-
-for tarjeta in tarjetas:
-
-    titulo_tag = tarjeta.find("p", class_=lambda x: x and "text-xl" in x)
-
-    ubicacion_tag = tarjeta.find("p", class_=lambda x: x and "text-sm" in x)
- 
-    precio_tag = tarjeta.find("p", class_=lambda x: x and "text-2xl" in x)
-    
-    if titulo_tag and precio_tag:
-        titulo = titulo_tag.text.strip()
-        ubicacion = ubicacion_tag.text.strip() if ubicacion_tag else "Sin ubicación"
-        precio = precio_tag.text.strip()
-        
-        precio_limpio = precio.replace('$', '').replace(',', '').strip()
-        
-        lista_propiedades.append({
-            "Titulo": titulo,
-            "Ubicacion": ubicacion,
-            "Precio_USD": precio_limpio
-        })
-
-if lista_propiedades:
-    df = pd.DataFrame(lista_propiedades)
-    print("\nMuestra de los datos extraídos")
-    print(df.head())
-    
-    # Guardamos en CSV
-    df.to_csv("dataset_homes_guatemala.csv", index=False, encoding="utf-8")
-    print(f"\n¡Se guardaron {len(df)} propiedades en 'dataset_homes_guatemala.csv'.")
+conn = db_config.get_connection()
+if conn:
+    id_fuente = db_config.get_or_create_fuente(conn, "Homes Guatemala", "https://homesguatemala.com")
+    id_tipo_inmueble_base = db_config.get_or_create_tipo_inmueble(conn, "Inmueble")
 else:
-    print("no se encontraron propiedades. Revisa la estructura del HTML.")
+    print("Advertencia: No se pudo conectar a la base de datos.")
+
+total_procesados = 0
+
+# El usuario pidió de la página 1 a la 6
+for page in range(1, 7):
+    print(f"Consultando página {page}...")
+    params = {
+        "PageNumber": page,
+        "PageSize": 12, # Tamaño estándar por página
+        "Operaciones": "Venta"
+    }
+    
+    try:
+        response = requests.get(API_BASE_URL, headers=HEADERS, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get("items", [])
+            print(f"  - Encontrados {len(items)} inmuebles.")
+            
+            for item in items:
+                titulo = item.get("titulo", "Sin título")
+                ubicacion = item.get("ubicaciones", "Sin ubicación")
+                precio = item.get("precio", 0)
+                habs = item.get("habitaciones", 0)
+                banos = item.get("banos", 0)
+                parqueos = item.get("parqueos", 0)
+                area = item.get("metrosCuadrados", 0)
+                tipo_str = item.get("tipos", "Inmueble")
+                
+                # Insercion DB
+                if conn:
+                    try:
+                        # La API devuelve el precio numérico. 
+                        # Para Homes Guatemala, el precio suele estar en USD.
+                        # Usamos el formato '$ valor' para que data_cleaner lo convierta a Quetzales si es necesario.
+                        precio_con_moneda = f"$ {precio}"
+                        precio_db = data_cleaner.limpiar_precio_quetzales(precio_con_moneda)
+                        
+                        nombre_zona = data_cleaner.extraer_zona(ubicacion)
+                        id_zona_db = db_config.get_or_create_zona(conn, nombre_zona)
+                        
+                        # Determinar tipo de inmueble
+                        id_tipo_inmueble = id_tipo_inmueble_base
+                        if tipo_str:
+                            id_tipo_inmueble = db_config.get_or_create_tipo_inmueble(conn, tipo_str)
+                        
+                        datos_db = {
+                            'id_fuente': id_fuente,
+                            'id_zona': id_zona_db,
+                            'id_tipo_inmueble': id_tipo_inmueble,
+                            'precio_quetzales': precio_db,
+                            'area_metros': area,
+                            'habitaciones': habs,
+                            'baños': banos,
+                            'parqueos': parqueos
+                        }
+                        db_config.insert_inmueble(conn, datos_db)
+                        total_procesados += 1
+                    except Exception as e_db:
+                        print(f"    - Error al insertar {titulo}: {e_db}")
+        else:
+            print(f"  - Error en la API (página {page}): {response.status_code}")
+            
+    except Exception as e:
+        print(f"  - Excepción en página {page}: {e}")
+    
+    # Pequeño delay para no saturar
+    time.sleep(1)
+
+print(f"\n¡Extracción finalizada! Se procesaron {total_procesados} propiedades en total.")
+
+if conn:
+    conn.close()
