@@ -1,0 +1,152 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valuador Guate - Cálculo de Valor Comercial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'estimator/style.css' %}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-top">
+                <h1 class="brand">Valuador Guate</h1>
+            </div>
+            <div class="header-content">
+                <h2 class="page-title">Cálculo de Valor Comercial</h2>
+            </div>
+        </header>
+
+        <main class="content">
+            <!-- Form Card -->
+            <section class="card form-card">
+                <div class="card-header">
+                    <i data-lucide="edit-3" class="icon-accent"></i>
+                    <h3>Datos de Entrada</h3>
+                </div>
+                
+                <form class="valuation-form" id="valuationForm">
+                    <div class="form-group">
+                        <label>Seleccione Zona</label>
+                        <div class="select-wrapper">
+                            <i data-lucide="map-pin" class="input-icon"></i>
+                            <select name="zona" required>
+                                <option value="" disabled selected>Seleccione una zona...</option>
+                                {% for zona in zonas %}
+                                    <option value="{{ zona }}">{{ zona }}</option>
+                                {% endfor %}
+                            </select>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Área Superficial (m²)</label>
+                        <div class="input-wrapper">
+                            <i data-lucide="maximize" class="input-icon"></i>
+                            <input type="number" name="area" placeholder="Ej. 150" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group small">
+                            <label>HAB.</label>
+                            <input type="number" name="habitaciones" placeholder="0" required>
+                        </div>
+                        <div class="form-group small">
+                            <label>BAÑOS</label>
+                            <input type="number" step="0.5" name="banos" placeholder="0" required>
+                        </div>
+                        <div class="form-group small">
+                            <label>PARQ.</label>
+                            <input type="number" name="parqueos" placeholder="0" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">
+                        <i data-lucide="layout-grid" class="btn-icon"></i>
+                        Calcular Valor Sugerido
+                    </button>
+                </form>
+            </section>
+
+            <!-- Hidden Results Section -->
+            <div id="resultsSection" class="hidden">
+                <!-- Results Card -->
+                <section class="results-card">
+                    <p class="results-label">PRECIO ESTIMADO SUGERIDO</p>
+                    <h2 class="price">{{ precio_estimado }} <span class="currency">GTQ</span></h2>
+                    <div class="trend positive">
+                        <i data-lucide="trending-up" class="icon-tiny"></i>
+                        <span>{{ tendencia }} tendencia en Zona 14</span>
+                    </div>
+                    <div class="tag">Datos Reales</div>
+                </section>
+
+                <!-- Reference Properties -->
+                <section class="references">
+                    <div class="section-header">
+                        <h3>Propiedades de Referencia</h3>
+                        <a href="#" class="view-all">Ver todas</a>
+                    </div>
+
+                    <div class="property-grid">
+                        {% for prop in propiedades %}
+                        <div class="property-card">
+                            <div class="property-info">
+                                <div class="property-header">
+                                    <div class="title-group">
+                                        <h4>{{ prop.titulo }}</h4>
+                                        <span class="property-tag">{{ prop.tipo }}</span>
+                                    </div>
+                                    <span class="card-price">{{ prop.precio }}</span>
+                                </div>
+                                
+                                <p class="location"><i data-lucide="map-pin" class="icon-tiny"></i> {{ prop.ubicacion }}</p>
+                                
+                                <div class="specs">
+                                    <span title="Área"><i data-lucide="maximize" class="icon-tiny"></i> {{ prop.area }}</span>
+                                    <span title="Habitaciones"><i data-lucide="bed" class="icon-tiny"></i> {{ prop.habs }}</span>
+                                    <span title="Baños"><i data-lucide="bath" class="icon-tiny"></i> {{ prop.banos }}</span>
+                                    <span title="Parqueos"><i data-lucide="car" class="icon-tiny"></i> {{ prop.parq }}</span>
+                                </div>
+                                
+                                <div class="card-footer">
+                                    <a href="#" class="btn-outline-sm">
+                                        Ver Publicación Original <i data-lucide="external-link" class="icon-tiny"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        document.getElementById('valuationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Basic validation check (though HTML5 'required' handles most)
+            const form = e.target;
+            if (form.checkValidity()) {
+                // Show the results section with a simple animation
+                const results = document.getElementById('resultsSection');
+                results.classList.remove('hidden');
+                results.scrollIntoView({ behavior: 'smooth' });
+                
+                // You can add logic here later to fetch real data from Django
+                console.log("Calculando...");
+            }
+        });
+    </script>
+</body>
+</html>

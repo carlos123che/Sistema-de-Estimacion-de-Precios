@@ -75,3 +75,4 @@ $RECYCLE.BIN/
 # Jupyter Notebooks (Por si haces análisis luego)
 # ==========================================
 .ipynb_checkpoints/
+DOCUMENTACION.md
