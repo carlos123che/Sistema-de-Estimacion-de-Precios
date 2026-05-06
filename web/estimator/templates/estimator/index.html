@@ -29,7 +29,8 @@
                     <h3>Datos de Entrada</h3>
                 </div>
                 
-                <form class="valuation-form" id="valuationForm">
+                <form class="valuation-form" id="valuationForm" method="POST" action="{% url 'index' %}">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label>Seleccione Zona</label>
                         <div class="select-wrapper">
@@ -48,22 +49,22 @@
                         <label>Área Superficial (m²)</label>
                         <div class="input-wrapper">
                             <i data-lucide="maximize" class="input-icon"></i>
-                            <input type="number" name="area" placeholder="Ej. 150" required>
+                            <input type="number" name="area" placeholder="Ej. 150" min="0" required>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group small">
                             <label>HAB.</label>
-                            <input type="number" name="habitaciones" placeholder="0" required>
+                            <input type="number" name="habitaciones" placeholder="0" min="1" required>
                         </div>
                         <div class="form-group small">
                             <label>BAÑOS</label>
-                            <input type="number" step="0.5" name="banos" placeholder="0" required>
+                            <input type="number" step="0.5" name="banos" placeholder="0" min="1" required>
                         </div>
                         <div class="form-group small">
                             <label>PARQ.</label>
-                            <input type="number" name="parqueos" placeholder="0" required>
+                            <input type="number" name="parqueos" placeholder="0" min="0" required>
                         </div>
                     </div>
 
@@ -75,15 +76,11 @@
             </section>
 
             <!-- Hidden Results Section -->
-            <div id="resultsSection" class="hidden">
+            <div id="resultsSection" class="{% if not mostrar_resultados %}hidden{% endif %}">
                 <!-- Results Card -->
                 <section class="results-card">
                     <p class="results-label">PRECIO ESTIMADO SUGERIDO</p>
                     <h2 class="price">{{ precio_estimado }} <span class="currency">GTQ</span></h2>
-                    <div class="trend positive">
-                        <i data-lucide="trending-up" class="icon-tiny"></i>
-                        <span>{{ tendencia }} tendencia en Zona 14</span>
-                    </div>
                     <div class="tag">Datos Reales</div>
                 </section>
 
@@ -132,19 +129,11 @@
     <script>
         lucide.createIcons();
 
-        document.getElementById('valuationForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Basic validation check (though HTML5 'required' handles most)
-            const form = e.target;
-            if (form.checkValidity()) {
-                // Show the results section with a simple animation
-                const results = document.getElementById('resultsSection');
-                results.classList.remove('hidden');
+        // Scroll to results if they are shown after form submission
+        document.addEventListener("DOMContentLoaded", function() {
+            const results = document.getElementById('resultsSection');
+            if (!results.classList.contains('hidden')) {
                 results.scrollIntoView({ behavior: 'smooth' });
-                
-                // You can add logic here later to fetch real data from Django
-                console.log("Calculando...");
             }
         });
     </script>

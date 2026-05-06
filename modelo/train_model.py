@@ -7,8 +7,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, r2_score, mean_absolute_percentage_error
 import joblib
+import numpy as np
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
@@ -67,7 +68,18 @@ def train():
     # El precio ya viene filtrado desde el SQL, pero filtramos las demás por seguridad
     df = df.dropna(subset=['zona', 'tipo_inmueble', 'area_metros', 'habitaciones', 'baños', 'parqueos'])
     
-    print(f"Datos cargados exitosamente: {len(df)} registros válidos.")
+    print(f"Datos originales: {len(df)} registros.")
+
+    # Remover outliers usando el método IQR (Rango Intercuartílico)
+    for col in ['precio', 'area_metros']:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.0 * IQR
+        upper_bound = Q3 + 1.0 * IQR
+        df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+
+    print(f"Datos después de remover outliers: {len(df)} registros válidos.")
     
     # Definir características (X) y objetivo (y)
     X = df.drop('precio', axis=1)
@@ -87,10 +99,11 @@ def train():
         ])
     
     # Crear el Pipeline: Preprocesamiento + Modelo de Regresión
-    # Usamos RandomForestRegressor por su robustez ante datos de mercado inmobiliario
+    rf = RandomForestRegressor(n_estimators=300, min_samples_split=4, random_state=42)
+
     model = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('regressor', RandomForestRegressor(n_estimators=150, random_state=42))
+        ('regressor', rf)
     ])
     
     # Dividir en sets de entrenamiento y prueba (80/20)
@@ -103,9 +116,18 @@ def train():
     y_pred = model.predict(X_test)
     mae = mean_absolute_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
+    mape = mean_absolute_percentage_error(y_test, y_pred)
+    
+    # Calcular desviación de los errores y MDM (Mediana del Error Absoluto)
+    errores = np.abs(y_test - y_pred)
+    mdm = np.median(errores) # MDM / Median Absolute Error
+    std_error = np.std(errores)
     
     print("\n--- Resultados de la Evaluación ---")
     print(f"Error Medio Absoluto (MAE): Q {mae:,.2f}")
+    print(f"Mediana del Error Absoluto (MDM - Median Absolute Error): Q {mdm:,.2f}")
+    print(f"Desviación Estándar del Error (qué tanto varían): Q {std_error:,.2f}")
+    print(f"Error Porcentual Absoluto Medio (MAPE): {mape*100:.2f}%")
     print(f"Precisión (R² Score): {r2:.4f}")
     
     # Guardar el modelo entrenado
