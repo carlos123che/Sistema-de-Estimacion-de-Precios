@@ -3,7 +3,7 @@ import os
 import joblib
 import pandas as pd
 from django.conf import settings
-import psycopg2
+import psycopg
 from dotenv import load_dotenv
 
 # Cargar variables de entorno (del archivo .env en modelo/)
