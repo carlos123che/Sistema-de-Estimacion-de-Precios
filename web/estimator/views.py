@@ -41,7 +41,7 @@ def predict_price(zona, tipo_inmueble, area_metros, habitaciones, banos, parqueo
 def get_similar_properties(estimacion, zona_limpia):
     propiedades = []
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host=os.getenv("DB_HOST", "localhost"),
             user=os.getenv("DB_USER", "postgres"),
             password=os.getenv("DB_PASSWORD", ""),
@@ -103,7 +103,7 @@ def index(request):
     # Obtener zonas desde la base de datos
     zonas = []
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host=os.getenv("DB_HOST", "localhost"),
             user=os.getenv("DB_USER", "postgres"),
             password=os.getenv("DB_PASSWORD", ""),
@@ -142,7 +142,7 @@ def index(request):
                 precio_estimado_str = f"Q {estimacion:,.2f}"
                 mostrar_resultados = True
                 
-                # Convertir numpy.float64 a float nativo de Python para que psycopg2 no falle
+                # Convertir numpy.float64 a float nativo de Python para que  no falle
                 estimacion_float = float(estimacion)
                 propiedades_referencia = get_similar_properties(estimacion_float, zona_limpia)
             else:
