@@ -112,7 +112,8 @@ for i, url in enumerate(urls_detalles):
                         'area_metros': area_limpia,
                         'habitaciones': habs_limpio,
                         'baños': banos_limpio,
-                        'parqueos': parqueos_limpio
+                        'parqueos': parqueos_limpio,
+                        'url': url
                     }
                     db_config.insert_inmueble(conn, datos_db)
                 except Exception as e_db:

@@ -75,10 +75,10 @@ def insert_inmueble(conn, data):
     with conn.cursor() as cur:
         # data: {'id_fuente': int, 'id_zona': int, 'id_tipo_inmueble': int, 
         #        'precio_quetzales': float, 'area_metros': float, 
-        #        'habitaciones': int, 'baños': float, 'parqueos': int}
+        #        'habitaciones': int, 'baños': float, 'parqueos': int, 'url': str}
         query = """
-        INSERT INTO Inmueble (id_fuente, id_zona, id_tipo_inmueble, precio_quetzales, area_metros, habitaciones, baños, parqueos)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        INSERT INTO Inmueble (id_fuente, id_zona, id_tipo_inmueble, precio_quetzales, area_metros, habitaciones, baños, parqueos, url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
         """
         cur.execute(query, (
             data.get('id_fuente'),
@@ -88,6 +88,7 @@ def insert_inmueble(conn, data):
             data.get('area_metros'),
             data.get('habitaciones'),
             data.get('baños'),
-            data.get('parqueos')
+            data.get('parqueos'),
+            data.get('url')
         ))
         conn.commit()

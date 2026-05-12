@@ -8,6 +8,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_absolute_error, r2_score, mean_absolute_percentage_error
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.compose import TransformedTargetRegressor
 import joblib
 import numpy as np
 
@@ -69,17 +71,25 @@ def train():
     df = df.dropna(subset=['zona', 'tipo_inmueble', 'area_metros', 'habitaciones', 'baños', 'parqueos'])
     
     print(f"Datos originales: {len(df)} registros.")
-
-    # Remover outliers usando el método IQR (Rango Intercuartílico)
+    
+    # Limpieza: Eliminar precios irreales (menores a 200k Quetzales suelen ser errores o rentas)
+    df = df[df['precio'] >= 200000]
+    # Eliminar áreas irreales (menores a 40m2)
+    df = df[df['area_metros'] >= 40]
+    
+    # Remover outliers usando el método IQR (Rango Intercuartílico) 
     for col in ['precio', 'area_metros']:
         Q1 = df[col].quantile(0.25)
         Q3 = df[col].quantile(0.75)
         IQR = Q3 - Q1
-        lower_bound = Q1 - 1.0 * IQR
-        upper_bound = Q3 + 1.0 * IQR
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
         df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
 
     print(f"Datos después de remover outliers: {len(df)} registros válidos.")
+    
+    # Feature Engineering: Área por habitación
+    df['area_por_habitacion'] = df['area_metros'] / (df['habitaciones'] + 1)
     
     # Definir características (X) y objetivo (y)
     X = df.drop('precio', axis=1)
@@ -87,7 +97,7 @@ def train():
     
     # Identificar columnas categóricas y numéricas
     categorical_features = ['zona', 'tipo_inmueble']
-    numerical_features = ['area_metros', 'habitaciones', 'baños', 'parqueos']
+    numerical_features = ['area_metros', 'habitaciones', 'baños', 'parqueos', 'area_por_habitacion']
     
     # Crear el preprocesador:
     # 1. StandardScaler para normalizar los valores numéricos
@@ -95,15 +105,27 @@ def train():
     preprocessor = ColumnTransformer(
         transformers=[
             ('num', StandardScaler(), numerical_features),
-            ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+            ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)
         ])
     
-    # Crear el Pipeline: Preprocesamiento + Modelo de Regresión
-    rf = RandomForestRegressor(n_estimators=300, min_samples_split=4, random_state=42)
+    # Crear el Pipeline: Preprocesamiento + Modelo
+    # Usamos HistGradientBoostingRegressor que suele ser más potente que Random Forest
+    # Y aplicamos TransformedTargetRegressor para predecir el LOGARITMO del precio
+    regressor = HistGradientBoostingRegressor(
+        max_iter=1500, 
+        learning_rate=0.05, 
+        max_depth=12, 
+        l2_regularization=0.1,
+        random_state=42
+    )
 
     model = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('regressor', rf)
+        ('regressor', TransformedTargetRegressor(
+            regressor=regressor, 
+            func=np.log1p, 
+            inverse_func=np.expm1
+        ))
     ])
     
     # Dividir en sets de entrenamiento y prueba (80/20)

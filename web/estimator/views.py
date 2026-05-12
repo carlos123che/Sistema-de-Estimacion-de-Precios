@@ -30,6 +30,9 @@ def predict_price(zona, tipo_inmueble, area_metros, habitaciones, banos, parqueo
             'baños': float(banos),
             'parqueos': int(parqueos)
         }])
+        # Característica necesaria para el nuevo modelo
+        input_data['area_por_habitacion'] = input_data['area_metros'] / (input_data['habitaciones'] + 1)
+        
         return model.predict(input_data)[0]
     except Exception as e:
         print(f"Error prediciendo: {e}")
@@ -54,7 +57,8 @@ def get_similar_properties(estimacion, zona_limpia):
                     i.habitaciones, 
                     i.baños, 
                     i.parqueos, 
-                    i.precio_quetzales
+                    i.precio_quetzales,
+                    i.url
                 FROM Inmueble i
                 JOIN Zona z ON i.id_zona = z.id_zona
                 JOIN Tipo_Inmueble ti ON i.id_tipo_inmueble = ti.id_tipo_inmueble
@@ -85,7 +89,8 @@ def get_similar_properties(estimacion, zona_limpia):
                     'parq': f'{row[5]} Parq.',
                     'precio': f'Q {row[6]:,.2f}',
                     'tipo': 'SIMILAR',
-                    'imagen': imagenes[i % len(imagenes)]
+                    'imagen': imagenes[i % len(imagenes)],
+                    'url': row[7] if len(row) > 7 and row[7] else '#'
                 })
         conn.close()
     except Exception as e:

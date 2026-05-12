@@ -30,62 +30,60 @@ else:
 
 total_procesados = 0
 
-# Iterar de la página 1 a la 25
-for page in range(1, 26):
-    url = BASE_URL if page == 1 else f"{BASE_URL}page/{page}/"
+# Iterar de la página 1 a la 114
+for page in range(1, 115):
+    url = BASE_URL if page == 1 else f"{BASE_URL}?page={page}"
     print(f"\nMapeando página {page}: {url}...")
     
     try:
         response = scraper.get(url)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            tarjetas = soup.find_all('div', class_='listing_wrapper')
+            
+            # 1. NUEVA BÚSQUEDA DE TARJETAS: Buscamos las etiquetas <a> que envuelven toda la casa
+            tarjetas = soup.select('div.grid > a.group.block.bg-white')
             print(f"  - Encontradas {len(tarjetas)} propiedades.")
             
             for tarjeta in tarjetas:
-                titulo = tarjeta.get('data-modal-title', 'N/A')
-                link = tarjeta.get('data-modal-link', 'N/A')
+                # 2. Extraer Título y Link
+                titulo_tag = tarjeta.find('h3')
+                titulo = titulo_tag.text.strip() if titulo_tag else 'N/A'
                 
-                # Valores base del listado (como fallback)
-                precio_tag = tarjeta.find('div', class_='listing_unit_price_wrapper')
+                # El link ahora viene incompleto (/propiedades/CVC...), le sumamos el dominio
+                link_parcial = tarjeta.get('href', '')
+                link = f"https://mapainmueble.com{link_parcial}" if link_parcial else 'N/A'
+                
+                # 3. Extraer Precio (Buscando la clase text-xl font-black)
+                precio_tag = tarjeta.find('span', class_=lambda c: c and 'text-xl' in c and 'font-black' in c)
                 precio = precio_tag.text.strip() if precio_tag else 'N/A'
                 
-                loc_tag = tarjeta.find('div', class_='property_location_image')
-                ubicacion = " ".join([a.text.strip() for a in loc_tag.find_all('a')]) if loc_tag else 'N/A'
+                # 4. Extraer Ubicación
+                loc_tag = tarjeta.find('span', class_='truncate')
+                ubicacion = loc_tag.text.strip() if loc_tag else 'N/A'
                 
-                habs = 'N/A'
-                banos = 'N/A'
-                area = 'N/A'
-                parqueos = None
+                # 5. Extraer Detalles directamente de los íconos SVG de la tarjeta
+                habs, banos, parqueos, area = 'N/A', 'N/A', None, 'N/A'
                 
-                # Entrar al detalle para mayor precisión y parqueos
-                if link and link != 'N/A':
-                    print(f"    - Extrayendo detalle: {link}")
-                    try:
-                        resp_detail = scraper.get(link)
-                        if resp_detail.status_code == 200:
-                            soup_detail = BeautifulSoup(resp_detail.text, 'html.parser')
-                            
-                            # Extraer datos técnicos de la ficha detallada
-                            d_habs = extraer_dato_detalle(soup_detail, "Habitaciones")
-                            d_banos = extraer_dato_detalle(soup_detail, "Baños")
-                            d_parqueos = extraer_dato_detalle(soup_detail, "Parqueos")
-                            d_area = extraer_dato_detalle(soup_detail, "Metros² de Construcción")
-                            
-                            # Priorizar datos del detalle si existen
-                            if d_habs: habs = d_habs
-                            if d_banos: banos = d_banos
-                            if d_parqueos: parqueos = d_parqueos
-                            if d_area: area = d_area
-                        else:
-                            print(f"      ! Error detalle: {resp_detail.status_code}")
-                    except Exception as e_detail:
-                        print(f"      ! Error detalle: {e_detail}")
-                    
-                    # Delay para no ser bloqueados
-                    time.sleep(1)
+                # Buscamos todos los contenedores de íconos
+                iconos = tarjeta.find_all('span', class_=lambda c: c and 'flex items-center gap-1' in c)
                 
-                # Inserción en BD
+                for icono in iconos:
+                    svg = icono.find('svg')
+                    if svg:
+                        clases_svg = " ".join(svg.get('class', []))
+                        texto_icono = icono.text.strip()
+                        
+                        # Identificamos qué dato es basándonos en la clase del ícono
+                        if 'lucide-bed-double' in clases_svg:
+                            habs = texto_icono
+                        elif 'lucide-bath' in clases_svg:
+                            banos = texto_icono
+                        elif 'lucide-car' in clases_svg:
+                            parqueos = texto_icono
+                        elif 'lucide-maximize' in clases_svg:
+                            area = texto_icono
+                
+                # Inserción en BD (Esto se queda igual)
                 if conn:
                     try:
                         precio_limpio = data_cleaner.limpiar_precio_quetzales(precio)
@@ -105,7 +103,8 @@ for page in range(1, 26):
                             'area_metros': area_limpia,
                             'habitaciones': habs_limpio,
                             'baños': banos_limpio,
-                            'parqueos': parqueos_limpio
+                            'parqueos': parqueos_limpio,
+                            'url': link
                         }
                         db_config.insert_inmueble(conn, datos_db)
                         total_procesados += 1
@@ -117,8 +116,8 @@ for page in range(1, 26):
     except Exception as e:
         print(f"  - Excepción en página {page}: {e}")
     
-    # Delay entre páginas
-    time.sleep(2)
+    # Redujimos el delay a 1 segundo porque ya no bombardeamos al servidor entrando a cada casa
+    time.sleep(1)
 
 print(f"\n¡Extracción finalizada! Se procesaron {total_procesados} propiedades en total.")
 

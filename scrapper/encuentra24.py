@@ -148,7 +148,8 @@ def scraper_encuentra24():
                                 'area_metros': area_limpia,
                                 'habitaciones': habs_limpio,
                                 'baños': banos_limpio,
-                                'parqueos': parq_limpio
+                                'parqueos': parq_limpio,
+                                'url': detalles['URL']
                             }
                             db_config.insert_inmueble(conn, datos_db)
                             total_procesados += 1

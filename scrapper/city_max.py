@@ -117,7 +117,8 @@ for pagina in range(PAGINA_INICIAL, PAGINA_FINAL + 1):
                                 'area_metros': area_limpia,
                                 'habitaciones': habs_limpio,
                                 'baños': banos_limpio,
-                                'parqueos': parqueos_limpio
+                                'parqueos': parqueos_limpio,
+                                'url': url_propiedad
                             }
                             db_config.insert_inmueble(conn, datos_db)
                         except Exception as e_db:

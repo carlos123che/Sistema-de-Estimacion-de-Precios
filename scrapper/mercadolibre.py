@@ -165,7 +165,8 @@ if __name__ == "__main__":
                             'area_metros': area_limpia,
                             'habitaciones': habs_limpio,
                             'baños': banos_limpio,
-                            'parqueos': parqueos_limpio
+                            'parqueos': parqueos_limpio,
+                            'url': url
                         }
                         db_config.insert_inmueble(conn, datos_db)
                         print(f"  [✓] Insertado en BD: {detalles['Titulo'][:50]}...")

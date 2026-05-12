@@ -3,8 +3,8 @@ import db_config
 import data_cleaner
 import time
 
-# Configuración API
-API_BASE_URL = "https://app-pool.vylaris.online/homes/api/Inmueble"
+# --- NUEVA CONFIGURACIÓN API DESCUBIERTA ---
+API_BASE_URL = "https://app-pool.vylaris.com.ar/homes/api/Inmueble"
 HEADERS = {
     "Origin": "https://homesguatemala.com",
     "Referer": "https://homesguatemala.com/",
@@ -12,7 +12,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-print("Iniciando extracción desde la API de Homes Guatemala...")
+print("Iniciando extracción desde la NUEVA API de Homes Guatemala...")
 
 conn = db_config.get_connection()
 if conn:
@@ -33,7 +33,9 @@ for page in range(1, 7):
     }
     
     try:
+        # Petición a la nueva URL
         response = requests.get(API_BASE_URL, headers=HEADERS, params=params)
+        
         if response.status_code == 200:
             data = response.json()
             items = data.get("items", [])
@@ -49,12 +51,15 @@ for page in range(1, 7):
                 area = item.get("metrosCuadrados", 0)
                 tipo_str = item.get("tipos", "Inmueble")
                 
+                # Extraer o construir URL
+                url_propiedad = item.get("url") or item.get("seoUrl")
+                if not url_propiedad:
+                    id_prop = item.get("id") or item.get("inmuebleId") or ""
+                    url_propiedad = f"https://homesguatemala.com/propiedad/{id_prop}" if id_prop else "https://homesguatemala.com/"
+
                 # Insercion DB
                 if conn:
                     try:
-                        # La API devuelve el precio numérico. 
-                        # Para Homes Guatemala, el precio suele estar en USD.
-                        # Usamos el formato '$ valor' para que data_cleaner lo convierta a Quetzales si es necesario.
                         precio_con_moneda = f"$ {precio}"
                         precio_db = data_cleaner.limpiar_precio_quetzales(precio_con_moneda)
                         
@@ -74,19 +79,20 @@ for page in range(1, 7):
                             'area_metros': area,
                             'habitaciones': habs,
                             'baños': banos,
-                            'parqueos': parqueos
+                            'parqueos': parqueos,
+                            'url': url_propiedad
                         }
                         db_config.insert_inmueble(conn, datos_db)
                         total_procesados += 1
                     except Exception as e_db:
                         print(f"    - Error al insertar {titulo}: {e_db}")
         else:
-            print(f"  - Error en la API (página {page}): {response.status_code}")
+            print(f"  - Error en la API (página {page}): {response.status_code} - {response.text}")
             
     except Exception as e:
         print(f"  - Excepción en página {page}: {e}")
     
-    # Pequeño delay para no saturar
+    # Pequeño delay para no saturar el servidor
     time.sleep(1)
 
 print(f"\n¡Extracción finalizada! Se procesaron {total_procesados} propiedades en total.")

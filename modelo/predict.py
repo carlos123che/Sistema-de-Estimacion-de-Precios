@@ -20,6 +20,9 @@ def predict_price(zona, tipo_inmueble, area_metros, habitaciones, baños, parque
             'parqueos': parqueos
         }])
         
+        # Agregar la característica calculada que usa el modelo nuevo
+        input_data['area_por_habitacion'] = input_data['area_metros'] / (input_data['habitaciones'] + 1)
+        
         # Realizar la predicción
         prediction = model.predict(input_data)[0]
         
