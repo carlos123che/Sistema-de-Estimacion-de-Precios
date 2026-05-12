@@ -72,6 +72,8 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+CSRF_TRUSTED_ORIGINS = ['https://sistema-de-estimacion-de-precios-production.up.railway.app']
+
 STATIC_URL =  '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
